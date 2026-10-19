@@ -1,0 +1,161 @@
+@startuml
+!pragma teoz true
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam defaultFontName SansSerif
+skinparam defaultFontSize 16
+skinparam sequenceMessageAlign center
+skinparam maxMessageSize 180
+skinparam ParticipantPadding 20
+skinparam BoxPadding 12
+skinparam sequence {
+ ArrowColor #253E34
+ LifeLineBorderColor #6B7C74
+ ParticipantBorderColor #3B5B4B
+ ParticipantBackgroundColor #EDF6EE
+ GroupBorderColor #607D6B
+ GroupBackgroundColor #F8FBF8
+ ReferenceBackgroundColor #EDF3FA
+ ReferenceBorderColor #365A80
+}
+hide footbox
+header Serviço de Assinaturas de Marmitas • Projeto de Software
+title <b>sd I03 — Configurar plano, cardápio e entrega</b>\nColeções e entidades individuais alinhadas às classes de projeto
+footer I03 • Par correspondente: classes de projeto I03.
+autonumber
+actor "Cliente\n(assinante)" as CL
+box "Fronteira" #EAF2FC
+boundary "tela:TelaAssinatura" as UI
+end box
+box "Controle" #FFF6DF
+control "controle:ControladorAssinatura" as CT
+end box
+box "Coleção de planos" #F1EAF9
+participant "planos:CatalogoPlanos\n<<collection>>" as CAT
+end box
+box "Entidades" #EEF6ED
+entity "assinatura:Assinatura" as AS
+entity "plano:PlanoAssinatura" as PL
+entity "preferencia:PreferenciaAlimentar" as PF
+entity "cardapio:Cardapio" as CA
+end box
+box "Coleção de pratos" #F1EAF9
+participant "pratos:ColecaoPratos\n<<collection>>" as PR
+end box
+box "Entidades" #EEF6ED
+entity "prato:PratoPrincipal" as P
+entity "endereco:Endereco" as EN
+end box
+
+note over CT,PL
+Pré-condições: celular confirmado e assinatura em preparação.
+planos, cardapio e pratos são colaboradores previamente disponíveis.
+plano é a instância selecionada; prato representa o elemento corrente.
+end note
+
+CT -> CT : inicializarConfiguracao(false, false)
+CT -> CAT : obterPlanosDisponiveis()
+CAT --> CT : listaPlanos:List<PlanoAssinatura>
+CT -> UI : apresentarPlanos(listaPlanos)
+UI ->> CL : Exibir planos e preferências alimentares
+CL -> UI : confirmarPlano(planoSelecionado, tipoMarmita)
+UI -> CT : configurarPlano(planoSelecionado, tipoMarmita)
+CT -> AS : vincularPlano(planoSelecionado)
+create PF
+CT -> PF : <<create>> PreferenciaAlimentar(tipoMarmita)
+PF --> CT : preferencia:PreferenciaAlimentar
+CT -> AS : registrarPreferencia(preferencia)
+CT --> UI : conclusão
+
+CT -> CA : obterPratosPorTipo(tipoMarmita)
+activate CA
+CA -> PR : selecionarPorTipo(tipoMarmita)
+activate PR
+loop para cada prato do catálogo
+ PR -> P : ehDoTipo(tipoMarmita)
+ P --> PR : compativel:Boolean
+end
+PR --> CA : pratosCompativeis:List<PratoPrincipal>
+deactivate PR
+CA --> CT : pratosCompativeis:List<PratoPrincipal>
+deactivate CA
+note over CA,PR
+Tipo escolhido: VEGETARIANA, TRADICIONAL ou SEM_LACTOSE.
+A filtragem é parametrizada; o cliente não percorre os três cardápios.
+end note
+
+loop para cada prato da lista retornada
+ CT -> PR : obterDados(prato)
+ PR -> P : obterDados()
+ P --> PR : dados:DadosPrato
+ PR --> CT : dados:DadosPrato
+ CT -> UI : apresentarPrato(prato, dados.nome, dados.descricao)
+end
+UI ->> CL : Exibir cardápio compatível e permitir escolher quantidades
+
+loop não selecaoConfirmada e cliente permanece no fluxo
+ CL -> UI : ajustarQuantidadesEConfirmar(selecao)
+ UI -> CT : validarSelecao(selecao)
+ activate CT
+ CT -> CA : validarPratos(selecao, tipoMarmita)
+ CA --> CT : pratosCompativeis:Boolean
+ CT -> CAT : validarQuantidade(planoSelecionado, somaQuantidades)
+ CAT -> PL : validarQuantidade(somaQuantidades)
+ PL --> CAT : quantidadePermitida:Boolean
+ CAT --> CT : quantidadePermitida:Boolean
+ alt seleção não vazia; pratos compatíveis; quantidade permitida
+  CT -> CT : guardarSelecaoTemporaria(selecao)
+  note right of CT : selecaoConfirmada := true
+  CT --> UI : selecaoValida:Boolean = true
+  UI -> UI : apresentarCarrinho(selecao)
+  UI ->> CL : Exibir carrinho para revisão
+ else seleção vazia, incompatível ou acima do limite
+  CT --> UI : selecaoValida:Boolean = false
+  UI -> UI : apresentarErroSelecao()
+  UI ->> CL : Solicitar correção de pratos ou quantidades
+ end
+ deactivate CT
+end
+
+opt selecaoConfirmada
+ CL -> UI : confirmarEntrega(dadosEndereco, diaPreferido)
+ UI -> CT : registrarEntrega(dadosEndereco, diaPreferido)
+ create EN
+ CT -> EN : <<create>> Endereco(dadosEndereco, diaPreferido)
+ EN --> CT : endereco:Endereco
+ CT -> EN : validarPreenchimento()
+ EN --> CT : enderecoValido:Boolean
+ opt enderecoValido
+  CT -> AS : vincularEndereco(endereco)
+ end
+ note right of CT : configuracaoValida := enderecoValido
+ CT --> UI : enderecoValido:Boolean
+
+ loop não configuracaoValida e cliente permanece no fluxo
+  UI -> UI : solicitarCorrecaoEndereco()
+  UI ->> CL : Exibir erro e solicitar dados completos de entrega
+  CL -> UI : corrigirEntrega(dadosEndereco, diaPreferido)
+  UI -> CT : corrigirEntrega(dadosEndereco, diaPreferido)
+  CT -> EN : atualizarDados(dadosEndereco, diaPreferido)
+  CT -> EN : validarPreenchimento()
+  EN --> CT : enderecoValido:Boolean
+  opt enderecoValido
+   CT -> AS : vincularEndereco(endereco)
+  end
+  note right of CT : configuracaoValida := enderecoValido
+  CT --> UI : enderecoValido:Boolean
+ end
+
+ opt configuracaoValida
+  UI -> UI : liberarPagamento()
+  UI ->> CL : Exibir etapa de pagamento
+ end
+end
+
+note over CT,AS
+Saída: configuracaoValida:Boolean, seleção transitória e endereço.
+Map<PratoPrincipal,Integer> guarda prato → quantidade.
+Pedido e ItemPedido só são construídos em I04 após autorização.
+Se o cliente sair antes da conclusão, a assinatura não é ativada.
+end note
+@enduml

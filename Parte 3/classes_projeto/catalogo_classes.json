@@ -1,0 +1,321 @@
+{
+  "classes": {
+    "TelaAssinatura": {
+      "stereotype": "boundary",
+      "attrs": {
+        "controle": "ControladorAssinatura"
+      },
+      "operations": {
+        "iniciarAssinatura": "iniciarAssinatura(): void",
+        "apresentarIdentificacao": "apresentarIdentificacao(): void",
+        "solicitarCelularNomeEmail": "solicitarCelularNomeEmail(): void",
+        "apresentarSucesso": "apresentarSucesso(protocolo: String, resumo: ResumoAssinatura): void",
+        "apresentarFalhaPagamento": "apresentarFalhaPagamento(): void",
+        "encerrarContratacaoSemAtivar": "encerrarContratacaoSemAtivar(): void",
+        "encerrarContratacaoSemCriarAssinatura": "encerrarContratacaoSemCriarAssinatura(): void",
+        "irParaMinhaConta": "irParaMinhaConta(): void",
+        "apresentarConta": "apresentarConta(): void",
+        "informarIdentificacao": "informarIdentificacao(celular: String, nome: String, email: String): void",
+        "solicitarCodigo": "solicitarCodigo(): void",
+        "apresentarValidacaoSMS": "apresentarValidacaoSMS(): void",
+        "reenviarCodigo": "reenviarCodigo(): void",
+        "informarCodigo": "informarCodigo(codigoInformado: String): void",
+        "liberarSelecaoDePlano": "liberarSelecaoDePlano(): void",
+        "informarErroCodigo": "informarErroCodigo(): void",
+        "solicitarNovaTentativaOuReenvio": "solicitarNovaTentativaOuReenvio(): void",
+        "apresentarPlanos": "apresentarPlanos(planos: List<PlanoAssinatura>): void",
+        "confirmarPlano": "confirmarPlano(plano: PlanoAssinatura, tipo: TipoMarmita): void",
+        "apresentarPrato": "apresentarPrato(prato: PratoPrincipal, nome: String, descricao: String): void",
+        "ajustarQuantidadesEConfirmar": "ajustarQuantidadesEConfirmar(selecao: Map<PratoPrincipal,Integer>): void",
+        "apresentarCarrinho": "apresentarCarrinho(selecao: Map<PratoPrincipal,Integer>): void",
+        "apresentarErroSelecao": "apresentarErroSelecao(): void",
+        "revisarMarmitasSelecionadas": "revisarMarmitasSelecionadas(): void",
+        "solicitarCorrecaoDeQuantidadesOuPratos": "solicitarCorrecaoDeQuantidadesOuPratos(): void",
+        "confirmarEntrega": "confirmarEntrega(dadosEndereco: String, diaPreferido: String): void",
+        "liberarPagamento": "liberarPagamento(): void",
+        "apresentarEtapaPagamento": "apresentarEtapaPagamento(): void",
+        "manterNaEtapaDeEntrega": "manterNaEtapaDeEntrega(): void",
+        "solicitarCorrecaoEndereco": "solicitarCorrecaoEndereco(): void",
+        "corrigirEntrega": "corrigirEntrega(dadosEndereco: String, diaPreferido: String): void",
+        "apresentarResumoFinanceiro": "apresentarResumoFinanceiro(valor: Decimal, plano: PlanoAssinatura): void",
+        "solicitarCartaoEParcelamento": "solicitarCartaoEParcelamento(): void",
+        "confirmarPagamento": "confirmarPagamento(dadosCartao: String, parcelamento: Integer): void",
+        "apresentarProcessamento": "apresentarProcessamento(): void",
+        "corrigirDadosCartao": "corrigirDadosCartao(): void"
+      }
+    },
+    "ControladorAssinatura": {
+      "stereotype": "control",
+      "attrs": {
+        "tela": "TelaAssinatura",
+        "assinante": "Assinante [0..1]",
+        "assinatura": "Assinatura [0..1]",
+        "codigo": "CodigoConfirmacao [0..1]",
+        "celularConfirmado": "Boolean = false",
+        "catalogoPlanos": "CatalogoPlanos",
+        "cardapio": "Cardapio",
+        "selecao": "Map<PratoPrincipal,Integer>",
+        "colecaoPratos": "ColecaoPratos",
+        "planoSelecionado": "PlanoAssinatura [0..1]",
+        "tipoMarmita": "TipoMarmita [0..1]",
+        "enderecoEmEdicao": "Endereco [0..1]",
+        "selecaoConfirmada": "Boolean = false",
+        "configuracaoValida": "Boolean = false",
+        "autorizado": "Boolean = false",
+        "mensageria": "InterfaceMensageria",
+        "integracao": "InterfaceOperadora",
+        "protocolo": "String [0..1]",
+        "resumo": "ResumoAssinatura [0..1]"
+      },
+      "operations": {
+        "iniciarContratacao": "iniciarContratacao(): void",
+        "identificarAssinante": "identificarAssinante(celular: String, nome: String, email: String): Assinante",
+        "reenviarCodigo": "reenviarCodigo(): void",
+        "confirmarCelular": "confirmarCelular(codigoInformado: String): Boolean",
+        "inicializarConfiguracao": "inicializarConfiguracao(selecaoConfirmada: Boolean, configuracaoValida: Boolean): void",
+        "configurarPlano": "configurarPlano(plano: PlanoAssinatura, tipo: TipoMarmita): void",
+        "validarSelecao": "validarSelecao(selecao: Map<PratoPrincipal,Integer>): Boolean",
+        "guardarSelecaoTemporaria": "guardarSelecaoTemporaria(selecao: Map<PratoPrincipal,Integer>): void",
+        "registrarEntrega": "registrarEntrega(dadosEndereco: String, diaPreferido: String): Boolean",
+        "corrigirEntrega": "corrigirEntrega(dadosEndereco: String, diaPreferido: String): Boolean",
+        "pagar": "pagar(dadosCartao: String, parcelamento: Integer): Boolean"
+      }
+    },
+    "Assinante": {
+      "stereotype": "entity",
+      "attrs": {
+        "celular": "String",
+        "nome": "String",
+        "email": "String"
+      },
+      "operations": {
+        "criar": "Assinante(celular: String, nome: String, email: String)",
+        "associarCodigoConfirmacao": "associarCodigoConfirmacao(codigo: CodigoConfirmacao): void"
+      }
+    },
+    "CodigoConfirmacao": {
+      "stereotype": "entity",
+      "attrs": {
+        "codigo": "String",
+        "tentativas": "Integer = 0",
+        "expiraEm": "DateTime"
+      },
+      "operations": {
+        "gerarCodigo": "CodigoConfirmacao(validade: Duration)",
+        "gerarNovoCodigo": "gerarNovoCodigo(validade: Duration): String",
+        "validar": "validar(codigoInformado: String, instanteAtual: DateTime): Boolean",
+        "registrarTentativaSemSucesso": "registrarTentativaSemSucesso(): void",
+        "obterCodigo": "obterCodigo(): String"
+      }
+    },
+    "Assinatura": {
+      "stereotype": "entity",
+      "attrs": {
+        "protocolo": "String [0..1]",
+        "status": "StatusAssinatura"
+      },
+      "operations": {
+        "criar": "Assinatura(assinante: Assinante, status: StatusAssinatura)",
+        "vincularPlano": "vincularPlano(plano: PlanoAssinatura): void",
+        "registrarPreferencia": "registrarPreferencia(preferencia: PreferenciaAlimentar): void",
+        "vincularEndereco": "vincularEndereco(endereco: Endereco): void",
+        "obterValorDoPlanoVinculado": "obterValorDoPlanoVinculado(): Decimal",
+        "prepararPagamento": "prepararPagamento(valor: Decimal, cartao: CartaoCredito): Pagamento",
+        "gerarPedido": "gerarPedido(selecao: Map<PratoPrincipal,Integer>): Pedido",
+        "ativar": "ativar(): void",
+        "gerarProtocolo": "gerarProtocolo(): String",
+        "obterResumoConfirmacao": "obterResumoConfirmacao(): ResumoAssinatura"
+      }
+    },
+    "PlanoAssinatura": {
+      "stereotype": "entity",
+      "attrs": {
+        "quantidadeRefeicoes": "Integer",
+        "periodicidade": "String",
+        "valor": "Decimal"
+      },
+      "operations": {
+        "validarQuantidade": "validarQuantidade(total: Integer): Boolean",
+        "obterValor": "obterValor(): Decimal"
+      }
+    },
+    "CatalogoPlanos": {
+      "stereotype": "collection",
+      "attrs": {
+        "planos": "List<PlanoAssinatura>"
+      },
+      "operations": {
+        "obterPlanosDisponiveis": "obterPlanosDisponiveis(): List<PlanoAssinatura>",
+        "validarQuantidade": "validarQuantidade(plano: PlanoAssinatura, total: Integer): Boolean"
+      }
+    },
+    "PreferenciaAlimentar": {
+      "stereotype": "entity",
+      "attrs": {
+        "tipo": "TipoMarmita"
+      },
+      "operations": {
+        "criar": "PreferenciaAlimentar(tipo: TipoMarmita)"
+      }
+    },
+    "Cardapio": {
+      "stereotype": "entity",
+      "attrs": {
+        "pratos": "ColecaoPratos"
+      },
+      "operations": {
+        "obterPratosPorTipo": "obterPratosPorTipo(tipo: TipoMarmita): List<PratoPrincipal>",
+        "validarPratos": "validarPratos(selecao: Map<PratoPrincipal,Integer>, tipo: TipoMarmita): Boolean"
+      }
+    },
+    "ColecaoPratos": {
+      "stereotype": "collection",
+      "attrs": {
+        "elementos": "List<PratoPrincipal>"
+      },
+      "operations": {
+        "selecionarPorTipo": "selecionarPorTipo(tipo: TipoMarmita): List<PratoPrincipal>",
+        "obterDados": "obterDados(prato: PratoPrincipal): DadosPrato"
+      }
+    },
+    "PratoPrincipal": {
+      "stereotype": "entity",
+      "attrs": {
+        "nome": "String",
+        "descricao": "String",
+        "tipo": "TipoMarmita"
+      },
+      "operations": {
+        "obterDados": "obterDados(): DadosPrato",
+        "ehDoTipo": "ehDoTipo(tipo: TipoMarmita): Boolean"
+      }
+    },
+    "DadosPrato": {
+      "stereotype": "datatype",
+      "attrs": {
+        "nome": "String",
+        "descricao": "String",
+        "tipo": "TipoMarmita"
+      },
+      "operations": {}
+    },
+    "Endereco": {
+      "stereotype": "entity",
+      "attrs": {
+        "enderecoEntrega": "String",
+        "diaPreferido": "String"
+      },
+      "operations": {
+        "criar": "Endereco(dadosEndereco: String, diaPreferido: String)",
+        "validarPreenchimento": "validarPreenchimento(): Boolean",
+        "atualizarDados": "atualizarDados(dadosEndereco: String, diaPreferido: String): void"
+      }
+    },
+    "Pagamento": {
+      "stereotype": "entity",
+      "attrs": {
+        "valor": "Decimal",
+        "status": "String"
+      },
+      "operations": {
+        "criar": "Pagamento(valor: Decimal, cartao: CartaoCredito, status: String)",
+        "solicitarAutorizacao": "solicitarAutorizacao(integracao: InterfaceOperadora, parcelamento: Integer): Boolean",
+        "registrarResultado": "registrarResultado(resultado: ResultadoAutorizacao): void"
+      }
+    },
+    "CartaoCredito": {
+      "stereotype": "entity",
+      "attrs": {
+        "dadosCartao": "String {referencia/mascarados}"
+      },
+      "operations": {
+        "criarReferenciaDePagamento": "CartaoCredito(dadosCartao: String)",
+        "validarDados": "validarDados(): Boolean",
+        "obterReferenciaParaAutorizacao": "obterReferenciaParaAutorizacao(): String"
+      }
+    },
+    "Pedido": {
+      "stereotype": "entity",
+      "attrs": {
+        "status": "StatusPedido"
+      },
+      "operations": {
+        "criar": "Pedido(status: StatusPedido)",
+        "adicionarItem": "adicionarItem(prato: PratoPrincipal, quantidade: Integer): ItemPedido"
+      }
+    },
+    "ItemPedido": {
+      "stereotype": "entity",
+      "attrs": {
+        "quantidade": "Integer"
+      },
+      "operations": {
+        "criar": "ItemPedido(prato: PratoPrincipal, quantidade: Integer)"
+      }
+    },
+    "ResumoAssinatura": {
+      "stereotype": "datatype",
+      "attrs": {
+        "protocolo": "String",
+        "assinante": "String",
+        "plano": "String",
+        "entrega": "String",
+        "pagamento": "String",
+        "pedido": "String"
+      },
+      "operations": {}
+    },
+    "InterfaceMensageria": {
+      "stereotype": "boundary",
+      "attrs": {},
+      "operations": {
+        "enviarSMS": "enviarSMS(celular: String, codigo: String): void",
+        "enviarConfirmacao": "enviarConfirmacao(email: String, protocolo: String, resumo: ResumoAssinatura): void"
+      }
+    },
+    "ServicoMensageria": {
+      "stereotype": "externalSystem",
+      "attrs": {},
+      "operations": {
+        "enviarSMS": "enviarSMS(celular: String, codigo: String): void",
+        "enviarEmailConfirmacao": "enviarEmailConfirmacao(email: String, protocolo: String, resumo: ResumoAssinatura): void"
+      }
+    },
+    "InterfaceOperadora": {
+      "stereotype": "boundary",
+      "attrs": {},
+      "operations": {
+        "autorizar": "autorizar(valor: Decimal, referenciaCartao: String, parcelamento: Integer): ResultadoAutorizacao"
+      }
+    },
+    "OperadoraCartaoCredito": {
+      "stereotype": "externalSystem",
+      "attrs": {},
+      "operations": {
+        "solicitarAutorizacao": "solicitarAutorizacao(valor: Decimal, referenciaCartao: String, parcelamento: Integer): ResultadoAutorizacao"
+      }
+    },
+    "ResultadoAutorizacao": {
+      "stereotype": "datatype",
+      "attrs": {
+        "autorizado": "Boolean",
+        "mensagem": "String"
+      },
+      "operations": {}
+    }
+  },
+  "enumeracoes": {
+    "StatusAssinatura": [
+      "AGUARDANDO_PAGAMENTO",
+      "ATIVA"
+    ],
+    "StatusPedido": [
+      "APROVADO"
+    ],
+    "TipoMarmita": [
+      "TRADICIONAL",
+      "VEGETARIANA",
+      "SEM_LACTOSE"
+    ]
+  }
+}

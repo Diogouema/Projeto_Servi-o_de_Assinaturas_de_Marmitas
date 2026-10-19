@@ -1,0 +1,183 @@
+@startuml
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam defaultFontName SansSerif
+skinparam defaultFontSize 14
+skinparam classAttributeIconSize 0
+skinparam wrapWidth 260
+skinparam nodesep 45
+skinparam ranksep 60
+skinparam packageStyle rectangle
+skinparam linetype polyline
+skinparam class {
+ BackgroundColor<<boundary>> #EAF2FC
+ BackgroundColor<<control>> #FFF6DF
+ BackgroundColor<<entity>> #EEF6ED
+ BackgroundColor<<collection>> #F1EAF9
+ BackgroundColor<<datatype>> #F7F7F7
+ BackgroundColor<<externalSystem>> #FFF0EB
+ BorderColor #486553
+ ArrowColor #486553
+}
+hide empty members
+header Serviço de Assinaturas de Marmitas • Projeto de Software
+title <b>Classes de projeto — I03: Plano, cardápio e entrega</b>
+footer 03 • Recorte do mesmo modelo de projeto; membros de outros cenários estão omitidos.
+package "Apresentação" #EAF2FC {
+class TelaAssinatura <<boundary>> {
+  -controle: ControladorAssinatura
+  --
+  +apresentarPlanos(planos: List<PlanoAssinatura>): void
+  +confirmarPlano(plano: PlanoAssinatura, tipo: TipoMarmita): void
+  +apresentarPrato(prato: PratoPrincipal, nome: String, descricao: String): void
+  +ajustarQuantidadesEConfirmar(selecao: Map<PratoPrincipal,Integer>): void
+  +apresentarCarrinho(selecao: Map<PratoPrincipal,Integer>): void
+  +apresentarErroSelecao(): void
+  +revisarMarmitasSelecionadas(): void
+  +solicitarCorrecaoDeQuantidadesOuPratos(): void
+  +confirmarEntrega(dadosEndereco: String, diaPreferido: String): void
+  +liberarPagamento(): void
+  +apresentarEtapaPagamento(): void
+  +manterNaEtapaDeEntrega(): void
+  +solicitarCorrecaoEndereco(): void
+  +corrigirEntrega(dadosEndereco: String, diaPreferido: String): void
+}
+}
+package "Coordenação" #FFF6DF {
+class ControladorAssinatura <<control>> {
+  -tela: TelaAssinatura
+  -assinatura: Assinatura [0..1]
+  -catalogoPlanos: CatalogoPlanos
+  -cardapio: Cardapio
+  -colecaoPratos: ColecaoPratos
+  -planoSelecionado: PlanoAssinatura [0..1]
+  -tipoMarmita: TipoMarmita [0..1]
+  -enderecoEmEdicao: Endereco [0..1]
+  -selecao: Map<PratoPrincipal,Integer>
+  -selecaoConfirmada: Boolean = false
+  -configuracaoValida: Boolean = false
+  --
+  -inicializarConfiguracao(selecaoConfirmada: Boolean, configuracaoValida: Boolean): void
+  +configurarPlano(plano: PlanoAssinatura, tipo: TipoMarmita): void
+  +validarSelecao(selecao: Map<PratoPrincipal,Integer>): Boolean
+  -guardarSelecaoTemporaria(selecao: Map<PratoPrincipal,Integer>): void
+  +registrarEntrega(dadosEndereco: String, diaPreferido: String): Boolean
+  +corrigirEntrega(dadosEndereco: String, diaPreferido: String): Boolean
+}
+}
+package "Domínio" #EEF6ED {
+class Assinatura <<entity>> {
+  -protocolo: String [0..1]
+  -status: StatusAssinatura
+  --
+  +vincularPlano(plano: PlanoAssinatura): void
+  +registrarPreferencia(preferencia: PreferenciaAlimentar): void
+  +vincularEndereco(endereco: Endereco): void
+}
+class PlanoAssinatura <<entity>> {
+  -quantidadeRefeicoes: Integer
+  -periodicidade: String
+  -valor: Decimal
+  --
+  +validarQuantidade(total: Integer): Boolean
+  +obterValor(): Decimal
+}
+class PreferenciaAlimentar <<entity>> {
+  -tipo: TipoMarmita
+  --
+  +PreferenciaAlimentar(tipo: TipoMarmita)
+}
+class Cardapio <<entity>> {
+  -pratos: ColecaoPratos
+  --
+  +obterPratosPorTipo(tipo: TipoMarmita): List<PratoPrincipal>
+  +validarPratos(selecao: Map<PratoPrincipal,Integer>, tipo: TipoMarmita): Boolean
+}
+class PratoPrincipal <<entity>> {
+  -nome: String
+  -descricao: String
+  -tipo: TipoMarmita
+  --
+  +obterDados(): DadosPrato
+  +ehDoTipo(tipo: TipoMarmita): Boolean
+}
+class Endereco <<entity>> {
+  -enderecoEntrega: String
+  -diaPreferido: String
+  --
+  +Endereco(dadosEndereco: String, diaPreferido: String)
+  +validarPreenchimento(): Boolean
+  +atualizarDados(dadosEndereco: String, diaPreferido: String): void
+}
+}
+package "Coleções e tipos de apoio" #F4F0FA {
+class CatalogoPlanos <<collection>> {
+  -planos: List<PlanoAssinatura>
+  --
+  +obterPlanosDisponiveis(): List<PlanoAssinatura>
+  +validarQuantidade(plano: PlanoAssinatura, total: Integer): Boolean
+}
+class ColecaoPratos <<collection>> {
+  -elementos: List<PratoPrincipal>
+  --
+  +selecionarPorTipo(tipo: TipoMarmita): List<PratoPrincipal>
+  +obterDados(prato: PratoPrincipal): DadosPrato
+}
+class DadosPrato <<datatype>> {
+  +nome: String {readOnly}
+  +descricao: String {readOnly}
+  +tipo: TipoMarmita {readOnly}
+}
+}
+enum TipoMarmita {
+  TRADICIONAL
+  VEGETARIANA
+  SEM_LACTOSE
+}
+enum StatusAssinatura {
+  AGUARDANDO_PAGAMENTO
+  ATIVA
+}
+TelaAssinatura "1" <--> "1" ControladorAssinatura : interage >
+ControladorAssinatura "0..1" --> "0..1" Assinatura : configura >
+ControladorAssinatura "0..*" --> "1" CatalogoPlanos : consulta >
+ControladorAssinatura "0..*" --> "1" Cardapio : consulta >
+CatalogoPlanos "1" o--> "1..*" PlanoAssinatura : disponibiliza >
+Assinatura "0..*" --> "0..1" PlanoAssinatura : utiliza >
+Assinatura "1" *--> "0..1" PreferenciaAlimentar : registra >
+Assinatura "1" *--> "0..1" Endereco : possui >
+Cardapio "1" *--> "1" ColecaoPratos : mantém coleção >
+ColecaoPratos "0..*" o--> "1..*" PratoPrincipal : disponibiliza >
+ControladorAssinatura "0..*" --> "1" ColecaoPratos : lê dados dos pratos >
+ColecaoPratos ..> DadosPrato : retorna >
+PratoPrincipal ..> DadosPrato : fornece >
+PratoPrincipal ..> TipoMarmita : usa >
+PreferenciaAlimentar ..> TipoMarmita : usa >
+Assinatura ..> StatusAssinatura : usa >
+note bottom of CatalogoPlanos
+Linha de vida planos:CatalogoPlanos.
+validarQuantidade(plano,total) delega a
+plano.validarQuantidade(total).
+end note
+note bottom of ColecaoPratos
+Linha de vida pratos:ColecaoPratos.
+obterDados(prato) delega a prato.obterDados().
+Coleção é classe técnica, não nova entidade de negócio.
+end note
+note bottom of Assinatura
+0..1: referências opcionais enquanto a assinatura
+está em preparação. Quando ATIVA, plano,
+preferência e endereço devem existir (1).
+end note
+note bottom of ControladorAssinatura
+Seleção é um Map transitório: prato → quantidade.
+Não existe Pedido APROVADO antes do pagamento.
+Falhas são tratadas pelas mesmas classes.
+end note
+legend bottom left
+  - privado | + público | NomeClasse(...): construtor
+  Linha contínua: associação navegável; tracejada: dependência
+  Losango preenchido: composição; vazio: agregação
+  > no rótulo: sentido de leitura; números: multiplicidades
+endlegend
+@enduml
