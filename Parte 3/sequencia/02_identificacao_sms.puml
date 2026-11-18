@@ -1,0 +1,102 @@
+@startuml
+!pragma teoz true
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam defaultFontName SansSerif
+skinparam defaultFontSize 16
+skinparam sequenceMessageAlign center
+skinparam maxMessageSize 180
+skinparam ParticipantPadding 20
+skinparam BoxPadding 12
+skinparam sequence {
+ ArrowColor #253E34
+ LifeLineBorderColor #6B7C74
+ ParticipantBorderColor #3B5B4B
+ ParticipantBackgroundColor #EDF6EE
+ GroupBorderColor #607D6B
+ GroupBackgroundColor #F8FBF8
+ ReferenceBackgroundColor #EDF3FA
+ ReferenceBorderColor #365A80
+}
+hide footbox
+header Serviço de Assinaturas de Marmitas • Projeto de Software
+footer I02 • Correspondência: telas 1–2 do protótipo.
+title <b>sd I02 — Identificar e confirmar celular</b>\nFronteira, controle, entidades e integração SMS
+
+autonumber
+actor "Cliente\n(assinante)" as CL
+box "Fronteira" #EAF2FC
+boundary "tela:TelaAssinatura" as UI
+end box
+box "Controle" #FFF6DF
+control "controle:ControladorAssinatura" as CT
+end box
+box "Entidades" #EEF6ED
+entity "assinante:Assinante" as A
+entity "codigo:CodigoConfirmacao" as CD
+end box
+box "Fronteira externa" #EAF2FC
+boundary "mensagens:InterfaceMensageria" as MS
+end box
+actor "sms:ServicoMensageria" as EXT
+
+CL -> UI : informarIdentificacao(celular,nome,email):void
+UI -> CT : identificarAssinante(celular,nome,email):Assinante
+create A
+CT -> A : <<create>> Assinante(celular:String,nome:String,email:String)
+A --> CT : assinante:Assinante
+create CD
+CT -> CD : <<create>> CodigoConfirmacao(5 min)
+CD --> CT : codigo:CodigoConfirmacao
+CT -> CD : obterCodigo():String
+CD --> CT : codigoGerado:String
+CT -> A : associarCodigoConfirmacao(codigo):void
+CT ->> MS : enviarSMS(celular,codigoGerado):void
+MS ->> EXT : enviarSMS(celular,codigoGerado):void
+CT --> UI : assinante:Assinante
+CT -> UI : solicitarCodigo():void
+UI ->> CL : Exibir formulário para informar o código SMS.
+
+note over CD
+Cada código tem validade de 5 minutos.
+Não há máximo de tentativas definido.
+end note
+
+loop enquanto não confirmado e cliente permanece no fluxo
+ opt cliente solicita reenvio
+  CL -> UI : reenviarCodigo():void
+  UI -> CT : reenviarCodigo():void
+  CT -> CD : gerarNovoCodigo(5 min):String
+  CD --> CT : novoCodigo:String
+  CT ->> MS : enviarSMS(celular,novoCodigo):void
+  MS ->> EXT : enviarSMS(celular,novoCodigo):void
+ end
+
+ CL -> UI : informarCodigo(codigoInformado):void
+ UI -> CT : confirmarCelular(codigoInformado):Boolean
+ CT -> CD : validar(codigoInformado,instanteAtual):Boolean
+ CD --> CT : valido:Boolean
+ note right of CT : celularConfirmado := valido
+ alt código correto e na validade
+  CT --> UI : valido:Boolean = true
+  UI -> UI : liberarSelecaoDePlano():void
+  UI ->> CL : Liberar seleção de plano.
+ else código incorreto ou expirado
+  CT -> CD : registrarTentativaSemSucesso():void
+  note right of CD
+  Tentativa registrada sem retorno de dados.
+  end note
+  CT --> UI : valido:Boolean = false
+  UI -> UI : informarErroCodigo():void
+  UI ->> CL : Informar que o código está incorreto ou expirado.
+ end
+end
+
+note over CT,A
+Saída para I01: o controlador disponibiliza os campos
+celularConfirmado e assinante.
+A atribuição é estado, não uma chamada de pseudométodo.
+Em enviarSMS, o segundo parâmetro é sempre String,
+nunca o objeto CodigoConfirmacao.
+end note
+@enduml

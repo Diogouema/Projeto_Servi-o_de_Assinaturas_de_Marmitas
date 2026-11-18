@@ -1,0 +1,101 @@
+@startuml
+!pragma teoz true
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam defaultFontName SansSerif
+skinparam defaultFontSize 16
+skinparam sequenceMessageAlign center
+skinparam maxMessageSize 180
+skinparam ParticipantPadding 20
+skinparam BoxPadding 12
+skinparam sequence {
+ ArrowColor #253E34
+ LifeLineBorderColor #6B7C74
+ ParticipantBorderColor #3B5B4B
+ ParticipantBackgroundColor #EDF6EE
+ GroupBorderColor #607D6B
+ GroupBackgroundColor #F8FBF8
+ ReferenceBackgroundColor #EDF3FA
+ ReferenceBorderColor #365A80
+}
+hide footbox
+header Serviço de Assinaturas de Marmitas • Projeto de Software
+title <b>sd I01 — Realizar assinatura de marmitas</b>\nFluxo principal com referências às subinterações I02, I03 e I04
+footer I01 • Par correspondente: classes de projeto I01.
+autonumber
+actor "Cliente\n(assinante)" as CL
+box "Fronteira" #EAF2FC
+boundary "tela:TelaAssinatura" as UI
+end box
+box "Controle" #FFF6DF
+control "controle:ControladorAssinatura" as CT
+end box
+box "Entidades" #EEF6ED
+entity "assinatura:Assinatura" as AS
+end box
+box "Fronteira de integração" #EAF2FC
+boundary "mensagens:InterfaceMensageria" as MS
+end box
+actor "mensageria:ServicoMensageria" as EXT
+
+note over CL,CT
+Pré-condições: planos e cardápio disponíveis.
+Um controlador mantém os dados da sessão de contratação.
+end note
+CL -> UI : iniciarAssinatura()
+UI -> CT : iniciarContratacao()
+activate CT
+CT -> UI : apresentarIdentificacao()
+UI -> UI : solicitarCelularNomeEmail()
+UI ->> CL : Exibir formulário de identificação
+CT --> UI : conclusão
+deactivate CT
+
+ref over CL,UI,CT : I02 — Identificar e confirmar celular\nSaída: assinante:Assinante; celularConfirmado:Boolean
+
+alt celularConfirmado
+ create AS
+ CT -> AS : <<create>> Assinatura(assinante, AGUARDANDO_PAGAMENTO)
+ AS --> CT : assinatura:Assinatura
+ note right of CT
+ A referência à assinatura criada é mantida na sessão.
+ end note
+
+ ref over CL,UI,CT,AS : I03 — Configurar plano, cardápio e entrega\nSaída: configuracaoValida:Boolean; selecao:Map; endereco:Endereco
+
+ alt configuracaoValida
+  ref over CL,UI,CT,AS : I04 — Autorizar pagamento e concluir assinatura\nSaída: autorizado:Boolean; protocolo:String; resumo:ResumoAssinatura
+
+  alt autorizado
+   CT -> UI : apresentarSucesso(protocolo, resumo)
+   UI ->> CL : Exibir protocolo, assinatura ATIVA e dados de entrega
+   CT ->> MS : enviarConfirmacao(email, protocolo, resumo)
+   MS ->> EXT : enviarEmailConfirmacao(email, protocolo, resumo)
+   note over MS,EXT
+   Envio assíncrono: não bloqueia a exibição do sucesso.
+   O SMS antes da entrega pertence a uma interação futura.
+   end note
+   CL -> UI : irParaMinhaConta()
+   UI -> UI : apresentarConta()
+   UI ->> CL : Exibir minha conta
+  else não autorizado
+   CT -> UI : apresentarFalhaPagamento()
+   UI ->> CL : Exibir falha; assinatura não ativada
+  end
+ else cliente saiu sem concluir a configuração
+  CT -> UI : encerrarContratacaoSemAtivar()
+  UI ->> CL : Informar contratação não concluída
+ end
+else cliente saiu sem confirmar o celular
+ CT -> UI : encerrarContratacaoSemCriarAssinatura()
+ UI ->> CL : Informar contratação não concluída
+end
+
+legend bottom left
+  → chamada síncrona | tracejado: retorno de método
+  →> comunicação assíncrona ou exibição ao ator
+  ref: subinteração | alt: alternativa com condição
+  <<create>> NomeClasse(...): construção de uma instância
+  Mensagens ao Cliente descrevem a interface; não são métodos do ator.
+endlegend
+@enduml

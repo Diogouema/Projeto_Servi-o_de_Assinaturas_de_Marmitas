@@ -1,0 +1,178 @@
+@startuml
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam defaultFontName SansSerif
+skinparam defaultFontSize 14
+skinparam classAttributeIconSize 0
+skinparam wrapWidth 260
+skinparam nodesep 45
+skinparam ranksep 60
+skinparam packageStyle rectangle
+skinparam linetype polyline
+skinparam class {
+ BackgroundColor<<boundary>> #EAF2FC
+ BackgroundColor<<control>> #FFF6DF
+ BackgroundColor<<entity>> #EEF6ED
+ BackgroundColor<<collection>> #F1EAF9
+ BackgroundColor<<datatype>> #F7F7F7
+ BackgroundColor<<externalSystem>> #FFF0EB
+ BorderColor #486553
+ ArrowColor #486553
+}
+hide empty members
+header Serviço de Assinaturas de Marmitas • Projeto de Software
+title <b>Classes de projeto — I04: Pagamento e confirmação</b>
+footer 04 • Recorte do mesmo modelo de projeto; membros de outros cenários estão omitidos.
+package "Apresentação" #EAF2FC {
+class TelaAssinatura <<boundary>> {
+  -controle: ControladorAssinatura
+  --
+  +apresentarResumoFinanceiro(valor: Decimal, plano: PlanoAssinatura): void
+  +solicitarCartaoEParcelamento(): void
+  +confirmarPagamento(dadosCartao: String, parcelamento: Integer): void
+  +apresentarProcessamento(): void
+  +corrigirDadosCartao(): void
+}
+}
+package "Coordenação" #FFF6DF {
+class ControladorAssinatura <<control>> {
+  -tela: TelaAssinatura
+  -assinatura: Assinatura [0..1]
+  -planoSelecionado: PlanoAssinatura [0..1]
+  -selecao: Map<PratoPrincipal,Integer>
+  -integracao: InterfaceOperadora
+  -autorizado: Boolean = false
+  -protocolo: String [0..1]
+  -resumo: ResumoAssinatura [0..1]
+  --
+  +pagar(dadosCartao: String, parcelamento: Integer): Boolean
+}
+}
+package "Domínio" #EEF6ED {
+class Assinatura <<entity>> {
+  -protocolo: String [0..1]
+  -status: StatusAssinatura
+  --
+  +obterValorDoPlanoVinculado(): Decimal
+  +prepararPagamento(valor: Decimal, cartao: CartaoCredito): Pagamento
+  +gerarPedido(selecao: Map<PratoPrincipal,Integer>): Pedido
+  +ativar(): void
+  +gerarProtocolo(): String
+  +obterResumoConfirmacao(): ResumoAssinatura
+}
+class PlanoAssinatura <<entity>> {
+  -quantidadeRefeicoes: Integer
+  -periodicidade: String
+  -valor: Decimal
+  --
+  +obterValor(): Decimal
+}
+class Pagamento <<entity>> {
+  -valor: Decimal
+  -status: String
+  --
+  +Pagamento(valor: Decimal, cartao: CartaoCredito, status: String)
+  +solicitarAutorizacao(integracao: InterfaceOperadora, parcelamento: Integer): Boolean
+  +registrarResultado(resultado: ResultadoAutorizacao): void
+}
+class CartaoCredito <<entity>> {
+  -dadosCartao: String {referencia/mascarados}
+  --
+  +CartaoCredito(dadosCartao: String)
+  +validarDados(): Boolean
+  +obterReferenciaParaAutorizacao(): String
+}
+class Pedido <<entity>> {
+  -status: StatusPedido
+  --
+  +Pedido(status: StatusPedido)
+  +adicionarItem(prato: PratoPrincipal, quantidade: Integer): ItemPedido
+}
+class ItemPedido <<entity>> {
+  -quantidade: Integer
+  --
+  +ItemPedido(prato: PratoPrincipal, quantidade: Integer)
+}
+class PratoPrincipal <<entity>> {
+  -nome: String
+  -descricao: String
+  -tipo: TipoMarmita
+}
+}
+package "Coleções e tipos de apoio" #F4F0FA {
+class ResultadoAutorizacao <<datatype>> {
+  +autorizado: Boolean {readOnly}
+  +mensagem: String {readOnly}
+}
+class ResumoAssinatura <<datatype>> {
+  +protocolo: String {readOnly}
+  +assinante: String {readOnly}
+  +plano: String {readOnly}
+  +entrega: String {readOnly}
+  +pagamento: String {readOnly}
+  +pedido: String {readOnly}
+}
+}
+package "Integrações" #FFF0EB {
+class InterfaceOperadora <<boundary>> {
+  +autorizar(valor: Decimal, referenciaCartao: String, parcelamento: Integer): ResultadoAutorizacao
+}
+class OperadoraCartaoCredito <<externalSystem>> {
+  +solicitarAutorizacao(valor: Decimal, referenciaCartao: String, parcelamento: Integer): ResultadoAutorizacao
+}
+}
+enum StatusAssinatura {
+  AGUARDANDO_PAGAMENTO
+  ATIVA
+}
+enum StatusPedido {
+  APROVADO
+}
+enum TipoMarmita {
+  TRADICIONAL
+  VEGETARIANA
+  SEM_LACTOSE
+}
+TelaAssinatura "1" <--> "1" ControladorAssinatura : interage >
+ControladorAssinatura "0..1" --> "0..1" Assinatura : conclui >
+ControladorAssinatura "0..*" --> "1" InterfaceOperadora : configura integração >
+ControladorAssinatura ..> CartaoCredito : <<create>>
+Assinatura "0..*" --> "0..1" PlanoAssinatura : utiliza >
+Assinatura "1" *--> "0..1" Pagamento : possui >
+Pagamento "0..1" --> "1" CartaoCredito : utiliza >
+Pagamento ..> InterfaceOperadora : solicita autorização >
+InterfaceOperadora ..> OperadoraCartaoCredito : chama serviço externo >
+InterfaceOperadora ..> ResultadoAutorizacao : retorna >
+Pagamento ..> ResultadoAutorizacao : registra resultado >
+Assinatura "1" *--> "0..1" Pedido : gera >
+Pedido "1" *--> "1..*" ItemPedido : contém >
+ItemPedido "0..*" --> "1" PratoPrincipal : referencia >
+Assinatura ..> ResumoAssinatura : produz >
+Assinatura ..> StatusAssinatura : usa >
+Pedido ..> StatusPedido : usa >
+PratoPrincipal ..> TipoMarmita : usa >
+note bottom of Assinatura
+ATIVA exige pagamento aprovado e pedido criado.
+Plano, pagamento e pedido são 0..1 apenas
+enquanto a contratação está em preparação.
+end note
+note bottom of CartaoCredito
+dadosCartao representa referência/mascaramento.
+Não guardar CVV nem dados brutos do cartão.
+end note
+note bottom of InterfaceOperadora
+Nome InterfaceOperadora designa uma classe boundary,
+não o elemento UML interface. A operadora é externa.
+end note
+note bottom of Pagamento
+Aguardar aprovação é situação do pagamento (String).
+Sem autorização: manter assinatura aguardando
+pagamento e não criar pedido aprovado.
+end note
+legend bottom left
+  - privado | + público | NomeClasse(...): construtor
+  Linha contínua: associação navegável; tracejada: dependência
+  Losango preenchido: composição; vazio: agregação
+  > no rótulo: sentido de leitura; números: multiplicidades
+endlegend
+@enduml

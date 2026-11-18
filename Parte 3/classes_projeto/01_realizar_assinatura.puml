@@ -1,0 +1,119 @@
+@startuml
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam defaultFontName SansSerif
+skinparam defaultFontSize 14
+skinparam classAttributeIconSize 0
+skinparam wrapWidth 260
+skinparam nodesep 45
+skinparam ranksep 60
+skinparam packageStyle rectangle
+skinparam linetype polyline
+skinparam class {
+ BackgroundColor<<boundary>> #EAF2FC
+ BackgroundColor<<control>> #FFF6DF
+ BackgroundColor<<entity>> #EEF6ED
+ BackgroundColor<<collection>> #F1EAF9
+ BackgroundColor<<datatype>> #F7F7F7
+ BackgroundColor<<externalSystem>> #FFF0EB
+ BorderColor #486553
+ ArrowColor #486553
+}
+hide empty members
+header Serviço de Assinaturas de Marmitas • Projeto de Software
+title <b>Classes de projeto — I01: Realizar assinatura</b>
+footer 01 • Recorte do mesmo modelo de projeto; membros de outros cenários estão omitidos.
+package "Apresentação" #EAF2FC {
+class TelaAssinatura <<boundary>> {
+  -controle: ControladorAssinatura
+  --
+  +iniciarAssinatura(): void
+  +apresentarIdentificacao(): void
+  +solicitarCelularNomeEmail(): void
+  +apresentarSucesso(protocolo: String, resumo: ResumoAssinatura): void
+  +apresentarFalhaPagamento(): void
+  +encerrarContratacaoSemAtivar(): void
+  +encerrarContratacaoSemCriarAssinatura(): void
+  +irParaMinhaConta(): void
+  +apresentarConta(): void
+}
+}
+package "Coordenação" #FFF6DF {
+class ControladorAssinatura <<control>> {
+  -tela: TelaAssinatura
+  -assinante: Assinante [0..1]
+  -assinatura: Assinatura [0..1]
+  -celularConfirmado: Boolean = false
+  -configuracaoValida: Boolean = false
+  -autorizado: Boolean = false
+  -mensageria: InterfaceMensageria
+  -protocolo: String [0..1]
+  -resumo: ResumoAssinatura [0..1]
+  --
+  +iniciarContratacao(): void
+}
+}
+package "Domínio" #EEF6ED {
+class Assinante <<entity>> {
+  -celular: String
+  -nome: String
+  -email: String
+}
+class Assinatura <<entity>> {
+  -protocolo: String [0..1]
+  -status: StatusAssinatura
+  --
+  +Assinatura(assinante: Assinante, status: StatusAssinatura)
+  +ativar(): void
+  +gerarProtocolo(): String
+  +obterResumoConfirmacao(): ResumoAssinatura
+}
+}
+package "Coleções e tipos de apoio" #F4F0FA {
+class ResumoAssinatura <<datatype>> {
+  +protocolo: String {readOnly}
+  +assinante: String {readOnly}
+  +plano: String {readOnly}
+  +entrega: String {readOnly}
+  +pagamento: String {readOnly}
+  +pedido: String {readOnly}
+}
+}
+package "Integrações" #FFF0EB {
+class InterfaceMensageria <<boundary>> {
+  +enviarConfirmacao(email: String, protocolo: String, resumo: ResumoAssinatura): void
+}
+class ServicoMensageria <<externalSystem>> {
+  +enviarEmailConfirmacao(email: String, protocolo: String, resumo: ResumoAssinatura): void
+}
+}
+enum StatusAssinatura {
+  AGUARDANDO_PAGAMENTO
+  ATIVA
+}
+TelaAssinatura "1" <--> "1" ControladorAssinatura : interage >
+ControladorAssinatura "0..1" --> "0..1" Assinante : mantém assinante corrente >
+ControladorAssinatura "0..1" --> "0..1" Assinatura : mantém contratação corrente >
+Assinante "1" <-- "0..*" Assinatura : pertence a <
+ControladorAssinatura "0..*" --> "1" InterfaceMensageria : envia confirmação >
+InterfaceMensageria ..> ServicoMensageria : delega envio >
+Assinatura ..> ResumoAssinatura : produz >
+TelaAssinatura ..> ResumoAssinatura : apresenta >
+Assinatura ..> StatusAssinatura : usa >
+note bottom of ControladorAssinatura
+Um controlador por sessão de contratação.
+I02, I03 e I04 mostram os demais membros
+da MESMA classe, não novos controladores.
+end note
+note bottom of Assinatura
+Somente ativar após pagamento autorizado.
+Pedido, pagamento, plano e entrega são
+detalhados nos recortes I03 e I04.
+end note
+legend bottom left
+  - privado | + público | NomeClasse(...): construtor
+  Linha contínua: associação navegável; tracejada: dependência
+  Losango preenchido: composição; vazio: agregação
+  > no rótulo: sentido de leitura; números: multiplicidades
+endlegend
+@enduml

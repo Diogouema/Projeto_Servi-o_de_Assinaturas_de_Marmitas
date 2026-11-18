@@ -1,0 +1,145 @@
+@startuml
+!pragma teoz true
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam defaultFontName SansSerif
+skinparam defaultFontSize 16
+skinparam sequenceMessageAlign center
+skinparam maxMessageSize 180
+skinparam ParticipantPadding 20
+skinparam BoxPadding 12
+skinparam sequence {
+ ArrowColor #253E34
+ LifeLineBorderColor #6B7C74
+ ParticipantBorderColor #3B5B4B
+ ParticipantBackgroundColor #EDF6EE
+ GroupBorderColor #607D6B
+ GroupBackgroundColor #F8FBF8
+ ReferenceBackgroundColor #EDF3FA
+ ReferenceBorderColor #365A80
+}
+hide footbox
+header Serviço de Assinaturas de Marmitas • Projeto de Software
+footer I04 • Correspondência: telas 8–10; a apresentação final está em I01.
+title <b>sd I04 — Autorizar pagamento e concluir assinatura</b>\nIntegração externa, pedido e estados do domínio
+
+autonumber
+actor "Cliente\n(assinante)" as CL
+box "Fronteira" #EAF2FC
+boundary "tela:TelaAssinatura" as UI
+end box
+box "Controle" #FFF6DF
+control "controle:ControladorAssinatura" as CT
+end box
+box "Entidades" #EEF6ED
+entity "assinatura:Assinatura" as AS
+entity "plano:PlanoAssinatura" as PL
+entity "cartao:CartaoCredito" as CC
+entity "pagamento:Pagamento" as PG
+entity "pedido:Pedido" as PD
+entity "item:ItemPedido" as IT
+end box
+box "Fronteira externa" #EAF2FC
+boundary "integracao:InterfaceOperadora" as IN
+end box
+actor "operadora:OperadoraCartaoCredito" as OP
+
+note right of PL
+PL é preexistente nesta interação.
+Não é criado por este cenário.
+end note
+
+note over AS
+Pré-condições: plano, preferência, seleção e entrega confirmados.
+Assinatura.status = AGUARDANDO_PAGAMENTO.
+end note
+
+CT -> AS : obterValorDoPlanoVinculado():Decimal
+AS -> PL : obterValor():Decimal
+PL --> AS : valor:Decimal
+AS --> CT : valor:Decimal
+CT -> UI : apresentarResumoFinanceiro(valor:Decimal, plano:PlanoAssinatura):void
+UI ->> CL : exibe o resumo financeiro e solicita cartão e parcelamento
+CL -> UI : confirmarPagamento(dadosCartao:String, parcelamento:Integer):void
+UI -> CT : pagar(dadosCartao:String, parcelamento:Integer):Boolean
+
+create CC
+CT -> CC : <<create>> CartaoCredito(dadosCartao)
+CT -> CC : validarDados():Boolean
+CC --> CT : dadosValidos:Boolean
+
+alt dados válidos
+  CT -> AS : prepararPagamento(valor:Decimal, cartao:CartaoCredito):Pagamento
+  create PG
+  AS -> PG : <<create>> Pagamento(valor, cartao, "aguardando autorização")
+  PG --> AS : pagamento:Pagamento
+  AS --> CT : pagamento:Pagamento
+
+  CT -> UI : apresentarProcessamento():void
+  UI ->> CL : informa que o pagamento aguarda aprovação da operadora
+  CT -> PG : solicitarAutorizacao(integracao:InterfaceOperadora, parcelamento:Integer):Boolean
+  PG -> CC : obterReferenciaParaAutorizacao():String
+  CC --> PG : referenciaCartao:String
+  PG -> IN : autorizar(valor, referenciaCartao, parcelamento):ResultadoAutorizacao
+  IN -> OP : solicitarAutorizacao(valor, referenciaCartao, parcelamento):ResultadoAutorizacao
+  OP --> IN : resultado:ResultadoAutorizacao
+  IN --> PG : resultado:ResultadoAutorizacao
+  PG -> PG : registrarResultado(resultado:ResultadoAutorizacao):void
+  PG --> CT : resultado.autorizado:Boolean
+  note right of CT : autorizado := resultado.autorizado
+
+  alt autorizado
+    CT -> AS : gerarPedido(selecao:Map<PratoPrincipal,Integer>):Pedido
+    create PD
+    AS -> PD : <<create>> Pedido(APROVADO)
+    note right of PD
+    Pedido.status = APROVADO.
+    end note
+    loop para cada prato selecionado com quantidade > 0
+      AS -> PD : adicionarItem(prato:PratoPrincipal, quantidade:Integer):ItemPedido
+      create IT
+      PD -> IT : <<create>> ItemPedido(prato, quantidade)
+      IT --> PD : item:ItemPedido
+      PD --> AS : item:ItemPedido
+    end
+    AS --> CT : pedido:Pedido
+
+    CT -> AS : ativar():void
+    note right of AS
+    Assinatura.status muda para ATIVA.
+    end note
+    CT -> AS : gerarProtocolo():String
+    AS --> CT : protocolo:String
+    CT -> AS : obterResumoConfirmacao():ResumoAssinatura
+    AS --> CT : resumo:ResumoAssinatura
+    note over CT
+    CT guarda protocolo:String e resumo:ResumoAssinatura
+    em campos privados para uso por I01.
+    end note
+    CT --> UI : true:Boolean
+  else não autorizado
+    CT --> UI : false:Boolean
+    note over AS,PG
+    Assinatura continua AGUARDANDO_PAGAMENTO.
+    Nenhum Pedido APROVADO, ItemPedido ou novo fluxo de confirmação é criado.
+    A exibição final do resultado é feita em I01.
+    A falha de autorização é uma alternativa proposta na modelagem.
+    end note
+  end
+else dados inválidos
+  CT -> UI : corrigirDadosCartao():void
+  UI ->> CL : solicita correção dos dados do cartão
+  CT --> UI : false:Boolean
+  note over AS,CC
+  Assinatura continua AGUARDANDO_PAGAMENTO.
+  autorizado := false no controlador.
+  A correção dos dados é uma alternativa proposta na modelagem.
+  end note
+end
+
+note over CC,PG
+CartaoCredito fornece somente a referência necessária à autorização.
+Não persistir CVV nem dados brutos do cartão.
+O processamento externo não introduz novo valor de enumeração.
+end note
+@enduml
